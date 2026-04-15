@@ -42,40 +42,40 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: allure-report
 
-  notify-success:
-    needs: test
-    runs-on: self-hosted
-    if: success()
+  # notify-success:
+  #   needs: test
+  #   runs-on: self-hosted
+  #   if: success()
 
-    steps:
-      - name: Send success email
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.EMAIL_USER }}
-          password: ${{ secrets.EMAIL_PASS }}
-          subject: "CI Success - Playwright Tests"
-          to: tigrroot@gmail.com
-          from: CI Pipeline
-          body: "All tests passed успешно"
+  #   steps:
+  #     - name: Send success email
+  #       uses: dawidd6/action-send-mail@v3
+  #       with:
+  #         server_address: smtp.gmail.com
+  #         server_port: 465
+  #         secure: true
+  #         username: ${{ secrets.EMAIL_USER }}
+  #         password: ${{ secrets.EMAIL_PASS }}
+  #         subject: "CI Success - Playwright Tests"
+  #         to: tigrroot@gmail.com
+  #         from: CI Pipeline
+  #         body: "All tests passed успешно"
 
-  notify-failure:
-    needs: test
-    runs-on: self-hosted
-    if: failure()
+  # notify-failure:
+  #   needs: test
+  #   runs-on: self-hosted
+  #   if: failure()
 
-    steps:
-      - name: Send failure email
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.EMAIL_USER }}
-          password: ${{ secrets.EMAIL_PASS }}
-          subject: "CI FAILED - Playwright Tests"
-          to: tigrroot@gmail.com
-          from: CI Pipeline
-          body: "Tests failed! Check GitHub Actions logs."
+  #   steps:
+  #     - name: Send failure email
+  #       uses: dawidd6/action-send-mail@v3
+  #       with:
+  #         server_address: smtp.gmail.com
+  #         server_port: 465
+  #         secure: true
+  #         username: ${{ secrets.EMAIL_USER }}
+  #         password: ${{ secrets.EMAIL_PASS }}
+  #         subject: "CI FAILED - Playwright Tests"
+  #         to: tigrroot@gmail.com
+  #         from: CI Pipeline
+  #         body: "Tests failed! Check GitHub Actions logs."

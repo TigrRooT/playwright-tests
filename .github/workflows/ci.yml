@@ -16,7 +16,7 @@ jobs:
         run: docker compose down || true
 
       - name: Run tests in Docker
-        run: docker compose up --build --abort-on-container-exit
+        run: docker-compose up --build --abort-on-container-exit
 
       - name: Upload Allure report
         uses: actions/upload-artifact@v4

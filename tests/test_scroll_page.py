@@ -8,21 +8,16 @@ BASE_URL = "http://host.docker.internal:8080"
 @allure.story("Прокрутка страницы")
 @allure.title("Проверка, что страницу можно прокручивать")
 def test_page_can_scroll(page):
+
+
     with allure.step("Открываем страницу и скролим"):
-        # Используем domcontentloaded вместо ожидания полной загрузки
-        page.goto(BASE_URL, wait_until="domcontentloaded", timeout=30000)
+        page.goto(BASE_URL)
         page.wait_for_selector("body", timeout=5000)
-        
-        # Даем время на рендеринг
-        page.wait_for_timeout(1000)
     
         scroll_height = page.evaluate("document.body.scrollHeight")
         viewport_height = page.evaluate("window.innerHeight")
-        
         if scroll_height <= viewport_height:
             print("Страница не имеет прокрутки")
-            # Если нет прокрутки, тест все равно проходит
-            pytest.skip("Страница не требует прокрутки")
         else:
             print(f"Страница имеет прокрутку: {scroll_height}px контент, {viewport_height}px окно")
     
@@ -37,6 +32,7 @@ def test_page_can_scroll(page):
         bottom_position = page.evaluate("window.pageYOffset")
         assert bottom_position >= scroll_height - viewport_height - 10, "Не удалось прокрутить до конца"
     
+
         page.evaluate("window.scrollTo(0, 0)")
         page.wait_for_timeout(500)
         top_position = page.evaluate("window.pageYOffset")

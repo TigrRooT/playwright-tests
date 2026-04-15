@@ -12,18 +12,14 @@ def test_page_opens_successfully(page):
     Тест 1: Проверить, что страница успешно открывается
     """
     with allure.step("Открыть страницу"):
-        # Используем domcontentloaded вместо networkidle для ускорения
-        page.goto(BASE_URL, wait_until="domcontentloaded", timeout=30000)
-        # Даем время на базовый рендеринг
-        page.wait_for_timeout(1000)
+        page.goto(BASE_URL)
+        page.wait_for_load_state("networkidle")
     
     with allure.step("Проверить что страница содержит контент"):
         title = page.title()
         assert title, "Заголовок страницы пустой"
         print(f"Заголовок страницы: {title}")
         
-        # Проверяем наличие body
-        page.wait_for_selector("body", timeout=5000)
         body_text = page.inner_text("body")
         assert body_text.strip(), "Страница не содержит текста"
         print(f"Страница содержит текст (первые 50 символов): {body_text[:50]}...")

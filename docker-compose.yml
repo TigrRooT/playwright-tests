@@ -1,0 +1,6 @@
+services:
+  tests:
+    build: .
+    container_name: my-tests
+    volumes:
+      - ./reports:/app/reports

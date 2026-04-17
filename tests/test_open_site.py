@@ -2,6 +2,7 @@
 import pytest
 import allure
 
+
 BASE_URL = "http://host.docker.internal:8080"
 
 @allure.feature("Главная страница")

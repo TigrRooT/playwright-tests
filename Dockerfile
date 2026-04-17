@@ -1,6 +1,10 @@
 # Используем Python 3.13.1
 FROM python:3.13.1-slim
 
+# Настройка DNS внутри контейнера
+RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf
+RUN echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+
 # Установка системных зависимостей для Playwright и Allure
 RUN apt-get update && apt-get install -y \
     wget \
@@ -44,7 +48,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Установка браузеров Playwright
-RUN playwright install --with-deps chromium  # Устанавливаем только chromium для экономии места
+RUN playwright install --with-deps chromium
 
 # Копируем проект
 COPY . .

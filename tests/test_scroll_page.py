@@ -9,7 +9,6 @@ BASE_URL = "http://host.docker.internal:8080"
 @allure.title("Проверка, что страницу можно прокручивать")
 def test_page_can_scroll(page):
 
-
     with allure.step("Открываем страницу и скролим"):
         page.goto(BASE_URL)
         page.wait_for_selector("body", timeout=5000)

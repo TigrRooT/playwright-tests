@@ -1,13 +1,10 @@
 services:
-  app:
-    image: your-app-image
-    ports:
-      - "8080:8080"
-
   tests:
     build:
       context: .
-    depends_on:
-      - app
+    container_name: my-tests
+    volumes:
+      - ./reports:/app/reports
+    network_mode: host
     environment:
-      BASE_URL: "http://app:8080"
+      BASE_URL: "http://localhost:8080"

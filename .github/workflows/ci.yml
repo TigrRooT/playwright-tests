@@ -15,17 +15,14 @@ jobs:
       - name: Stop old containers
         run: docker compose down || true
 
-      - name: Build and run tests
-        run: docker compose up --build --abort-on-container-exit
+      # 🔥 ВАЖНО: правильный запуск
+      - name: Run tests
+        run: docker compose run --rm tests
 
-      # 🔥 ВАЖНЫЙ ФИКС: вытаскиваем отчёт из контейнера на хост
-      - name: Copy Allure report from container
-        run: |
-          mkdir -p reports
-          docker cp $(docker ps -alq):/app/reports ./reports || true
+      - name: Generate Allure report
+        run: docker compose run --rm tests allure generate /app/reports/allure-results -o /app/reports/allure-report --clean
 
-      # 🔥 проверка (очень полезно)
-      - name: Debug Allure files
+      - name: Debug reports
         run: ls -R reports || true
 
       - name: Upload Allure report

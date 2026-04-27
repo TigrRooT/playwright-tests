@@ -68,6 +68,5 @@ RUN mkdir -p reports/allure-results reports/allure-history reports/allure-report
 # Переключаемся на пользователя
 #USER tester
 
-
 # Команда запуска тестов
 CMD ["./run_tests.sh"]

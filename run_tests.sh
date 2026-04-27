@@ -4,11 +4,6 @@
 # Script for running tests with Allure and displaying trends
 # ===============================
 
-# Проверяем права на запись
-echo "Current user: $(whoami)"
-echo "Reports directory permissions:"
-ls -la /app/reports/ || echo "Reports dir not exists"
-
 # Check if Allure is installed
 if ! command -v allure &> /dev/null; then
     echo "Error: Allure is not installed or not in PATH"
@@ -42,33 +37,33 @@ fi
 echo "Running tests..."
 python -m pytest tests/ --alluredir=reports/allure-results
 
-# Сохраняем код возврата pytest
+# Сохраняем код возврата
 PYTEST_EXIT_CODE=$?
 
 # 4 Generate Allure report
 echo "Generating report..."
 allure generate reports/allure-results -o reports/allure-report --clean
 
-# Проверяем, создался ли отчет
-if [ -d "reports/allure-report" ]; then
-    echo "Report generated successfully"
-    ls -la reports/allure-report/
+# Проверяем создание отчета
+if [ -d "reports/allure-report" ] && [ -f "reports/allure-report/index.html" ]; then
+    echo "✓ Report generated successfully"
+    echo "Report size: $(du -sh reports/allure-report | cut -f1)"
 else
-    echo "ERROR: Report was not generated!"
+    echo "✗ ERROR: Report was not generated properly!"
     exit 1
 fi
 
 # 5 Save history from generated report for future runs
 if [ -d "reports/allure-report/history" ]; then
     rm -rf reports/allure-history/*
-    cp -r reports/allure-report/history/*.json "reports/allure-history/" 2>/dev/null
+    cp reports/allure-report/history/*.json "reports/allure-history/" 2>/dev/null
     count=$(find reports/allure-history -name "*.json" 2>/dev/null | wc -l)
     echo "Saved $count history files for the next run"
 else
     echo "Warning: History folder not found"
 fi
 
-echo "Done! Test report generated"
+echo "Done! Report generated at reports/allure-report/index.html"
 echo "If this is the first run, run the script again to see trends"
 
 # Возвращаем код ошибки pytest

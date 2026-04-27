@@ -44,7 +44,7 @@ WORKDIR /app
 # Копируем зависимости
 COPY requirements.txt .
 
-# Устанавливаем Python зависимости (включая pytest, allure-pytest, pytest-cov, playwright, pytest-playwright)
+# Устанавливаем Python зависимости
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Установка браузеров Playwright
@@ -56,17 +56,15 @@ COPY . .
 # Делаем скрипт исполняемым
 RUN chmod +x run_tests.sh
 
-# Создаем директории для отчетов
-RUN mkdir -p reports/allure-results reports/allure-history reports/allure-report
+# Создаем директории для отчетов с правильными правами
+RUN mkdir -p reports/allure-results reports/allure-history reports/allure-report && \
+    chmod -R 777 reports
 
 # Создаем пользователя
-RUN useradd -m tester
+RUN useradd -m -u 1001 tester
 
 # Меняем владельца файлов
 RUN chown -R tester:tester /app
 
-# Переключаемся на пользователя
-USER tester
-
-# Команда запуска тестов
+# Команда запуска тестов (запускаем от root для корректной записи в volume)
 CMD ["./run_tests.sh"]

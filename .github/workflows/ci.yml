@@ -15,29 +15,46 @@ jobs:
       - name: Stop old containers
         run: docker compose down || true
 
+      - name: Clean old reports
+        run: sudo rm -rf ./reports && mkdir -p ./reports
+
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
 
+      - name: List reports directory
+        run: ls -la ./reports/ && ls -la ./reports/allure-report/ || echo "Report not found"
+
       - name: Upload Allure report
+        if: always()  # Загружаем артефакт даже если тесты упали
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: reports/allure-report/
+          path: ./reports/allure-report/
+          retention-days: 7
 
   deploy:
     needs: test
     runs-on: self-hosted
-    if: success()
+    if: always() && needs.test.result == 'success'
 
     steps:
+      - name: Clean old artifact
+        run: sudo rm -rf allure-report
+
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: allure-report
-          path: allure-report
+          path: ./allure-report
+
+      - name: List downloaded files
+        run: ls -la ./allure-report/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: allure-report
+          publish_dir: ./allure-report
+          keep_files: false
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'

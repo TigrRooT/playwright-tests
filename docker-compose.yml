@@ -3,10 +3,13 @@ services:
     build:
       context: .
     container_name: my-tests
+
     working_dir: /app
 
     volumes:
-      - ./reports:/app/reports
+      - ./reports:/app/reports:rw
+
+    user: root
 
     network_mode: host
 

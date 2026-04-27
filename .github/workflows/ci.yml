@@ -18,6 +18,16 @@ jobs:
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
 
+      # 🔥 ВАЖНЫЙ ФИКС: вытаскиваем отчёт из контейнера на хост
+      - name: Copy Allure report from container
+        run: |
+          mkdir -p reports
+          docker cp $(docker ps -alq):/app/reports ./reports || true
+
+      # 🔥 проверка (очень полезно)
+      - name: Debug Allure files
+        run: ls -R reports || true
+
       - name: Upload Allure report
         uses: actions/upload-artifact@v4
         with:

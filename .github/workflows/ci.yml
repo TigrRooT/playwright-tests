@@ -18,7 +18,17 @@ jobs:
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
 
+      #DEBUG (очень поможет)
+      - name: Check reports
+        if: always()
+        run: |
+          echo "=== REPORTS ==="
+          ls -la reports || true
+          ls -la reports/allure-report || true
+
+      #ВАЖНО: always()
       - name: Upload Allure report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
@@ -27,7 +37,9 @@ jobs:
   deploy:
     needs: test
     runs-on: self-hosted
-    if: success()
+
+    #запускать даже если тесты упали
+    if: always()
 
     steps:
       - name: Download artifact

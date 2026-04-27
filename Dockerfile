@@ -60,13 +60,13 @@ RUN chmod +x run_tests.sh
 RUN mkdir -p reports/allure-results reports/allure-history reports/allure-report
 
 # Создаем пользователя
-#RUN useradd -m tester
+RUN useradd -m tester
 
 # Меняем владельца файлов
-#RUN chown -R tester:tester /app
+RUN chown -R tester:tester /app
 
 # Переключаемся на пользователя
-#USER tester
+USER tester
 
 # Команда запуска тестов
 CMD ["./run_tests.sh"]

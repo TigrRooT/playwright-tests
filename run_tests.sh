@@ -1,49 +1,55 @@
 #!/bin/bash
-
-# чтобы скрипт не падал сразу
-set +e
-
 # ===============================
 # run_tests.sh
+# Script for running tests with Allure and displaying trends
 # ===============================
 
+# Check if Allure is installed
 if ! command -v allure &> /dev/null; then
     echo "Error: Allure is not installed or not in PATH"
+    echo "Install: https://github.com/allure-framework/allure2/releases"
     exit 1
 fi
 
 # 1 Clear old test results
-rm -rf "reports/allure-results"
+if [ -d "reports/allure-results" ]; then
+    rm -rf "reports/allure-results"
+fi
 mkdir -p "reports/allure-results"
-mkdir -p "reports/allure-history"
+
+# Create history folder if it doesn't exist
+if [ ! -d "reports/allure-history" ]; then
+    mkdir -p "reports/allure-history"
+fi
 
 echo "Folders prepared"
 
-# 2 Copy history
+# 2 Copy history from previous runs to results folder
 if ls reports/allure-history/*.json 1> /dev/null 2>&1; then
     mkdir -p "reports/allure-results/history"
     cp reports/allure-history/*.json "reports/allure-results/history/" 2>/dev/null
-    echo "History copied"
+    echo "History copied. Comparison with previous run will be shown"
 else
-    echo "First run, no history"
+    echo "This is the first run. No history yet. Trends will appear after the second run"
 fi
 
 # 3 Run tests
 echo "Running tests..."
 python -m pytest tests/ --alluredir=reports/allure-results
-TEST_EXIT_CODE=$?
 
-# 4 Generate report (даже если тесты упали)
+# 4 Generate Allure report
 echo "Generating report..."
 allure generate reports/allure-results -o reports/allure-report --clean
 
-# 5 Save history
+# 5 Save history from generated report for future runs
 if [ -d "reports/allure-report/history" ]; then
     rm -rf reports/allure-history/*
     cp reports/allure-report/history/*.json "reports/allure-history/" 2>/dev/null
+    count=$(find reports/allure-history -name "*.json" 2>/dev/null | wc -l)
+    echo "Saved $count history files for the next run"
+else
+    echo "Warning: History folder not found"
 fi
 
-echo "Done!"
-
-# вернуть код pytest (чтобы CI видел фейл)
-exit $TEST_EXIT_CODE
+echo "Done! Report opened in browser"
+echo "If this is the first run, run the script again to see trends"

@@ -68,5 +68,6 @@ RUN chown -R tester:tester /app
 # Переключаемся на пользователя
 USER tester
 
+
 # Команда запуска тестов
 CMD ["./run_tests.sh"]

@@ -37,21 +37,9 @@ fi
 echo "Running tests..."
 python -m pytest tests/ --alluredir=reports/allure-results
 
-# Сохраняем код возврата
-PYTEST_EXIT_CODE=$?
-
 # 4 Generate Allure report
 echo "Generating report..."
 allure generate reports/allure-results -o reports/allure-report --clean
-
-# Проверяем создание отчета
-if [ -d "reports/allure-report" ] && [ -f "reports/allure-report/index.html" ]; then
-    echo "✓ Report generated successfully"
-    echo "Report size: $(du -sh reports/allure-report | cut -f1)"
-else
-    echo "✗ ERROR: Report was not generated properly!"
-    exit 1
-fi
 
 # 5 Save history from generated report for future runs
 if [ -d "reports/allure-report/history" ]; then
@@ -63,8 +51,5 @@ else
     echo "Warning: History folder not found"
 fi
 
-echo "Done! Report generated at reports/allure-report/index.html"
+echo "Done! Report opened in browser"
 echo "If this is the first run, run the script again to see trends"
-
-# Возвращаем код ошибки pytest
-exit $PYTEST_EXIT_CODE

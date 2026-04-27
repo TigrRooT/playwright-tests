@@ -2,7 +2,9 @@
 import pytest
 import allure
 
-BASE_URL = "http://host.docker.internal:8080"
+import os
+
+BASE_URL = os.getenv("BASE_URL", "http://app:8080")
 
 @allure.feature("Главная страница")
 @allure.story("Прокрутка страницы")

@@ -2,12 +2,14 @@ services:
   tests:
     build:
       context: .
-      network: host
     container_name: my-tests
     working_dir: /app
+
     volumes:
       - ./reports:/app/reports
+
     network_mode: host
+
     dns:
       - 8.8.8.8
       - 1.1.1.1

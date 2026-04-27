@@ -1,22 +1,23 @@
 version: "3.9"
 
 services:
-  tests:
-    build:
-      context: .
+  my-tests:
+    build: .
     container_name: my-tests
 
+    # ВАЖНО: одинаковый UID с runner (обычно 1000)
     user: "1000:1000"
 
     volumes:
+      - .:/app
       - ./reports:/app/reports
 
-    network_mode: host
+    working_dir: /app
 
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+    environment:
+      - BASE_URL=http://host.docker.internal:8080
 
-    
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+    command: ["bash", "./run_tests.sh"]

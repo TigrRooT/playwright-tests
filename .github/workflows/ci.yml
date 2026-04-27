@@ -15,25 +15,14 @@ jobs:
       - name: Stop old containers
         run: docker compose down || true
 
-      - name: Run tests
+      - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
-
-      - name: Debug reports
-        run: |
-          echo "=== REPORTS ==="
-          ls -R reports || true
-          echo "=== ALLURE RESULTS ==="
-          ls -R reports/allure-results || true
-          echo "=== ALLURE REPORT ==="
-          ls -R reports/allure-report || true
 
       - name: Upload Allure report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: reports/allure-report
-          if-no-files-found: error
-          retention-days: 7
+          path: reports/allure-report/
 
   deploy:
     needs: test
@@ -47,10 +36,7 @@ jobs:
           name: allure-report
           path: allure-report
 
-      - name: Verify
-        run: ls -R allure-report
-
-      - name: Deploy GitHub Pages
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

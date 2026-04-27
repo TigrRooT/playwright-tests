@@ -15,23 +15,9 @@ jobs:
       - name: Stop old containers
         run: docker compose down || true
 
-      # 🔥 создаём папки на хосте (важно для volume)
-      - name: Prepare reports folders
-        run: mkdir -p reports/allure-results reports/allure-report
+      - name: Build and run tests
+        run: docker compose up --build --abort-on-container-exit
 
-      # 🔥 запускаем тесты и явно пишем Allure results в /app/reports
-      - name: Run tests
-        run: docker compose run --rm tests pytest tests --alluredir=/app/reports/allure-results
-
-      # 🔥 генерируем отчёт из результатов
-      - name: Generate Allure report
-        run: docker compose run --rm tests allure generate /app/reports/allure-results -o /app/reports/allure-report --clean
-
-      # 🔥 проверка что файлы реально создались
-      - name: Debug reports
-        run: ls -R reports || true
-
-      # 🔥 загрузка артефакта
       - name: Upload Allure report
         uses: actions/upload-artifact@v4
         with:

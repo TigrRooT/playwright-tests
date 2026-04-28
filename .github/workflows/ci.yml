@@ -15,12 +15,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 👉 Загружаем историю предыдущих отчетов
+      # 👉 Загружаем историю предыдущих отчетов (исправлено)
       - name: Load previous Allure history
         run: |
-          git clone --depth=1 --branch gh-pages https://github.com/${{ github.repository }} gh-pages || true
+          # Проверяем существует ли ветка gh-pages
+          if git ls-remote --heads https://github.com/${{ github.repository }} gh-pages | grep -q gh-pages; then
+            echo "Branch gh-pages exists, cloning..."
+            git clone --depth=1 --branch gh-pages https://github.com/${{ github.repository }} gh-pages || \
+            git clone --branch gh-pages https://github.com/${{ github.repository }} gh-pages || true
+          else
+            echo "Branch gh-pages does not exist yet, skipping history clone"
+          fi
+          
           mkdir -p reports/allure-history
-          cp -r gh-pages/history/* reports/allure-history/ 2>/dev/null || true
+          if [ -d "gh-pages/history" ]; then
+            cp -r gh-pages/history/* reports/allure-history/ 2>/dev/null || true
+            echo "History copied successfully"
+          else
+            echo "No history found, starting fresh"
+          fi
 
       - name: Stop old containers
         run: docker compose down || true
@@ -32,13 +45,17 @@ jobs:
       - name: Save history for next run
         run: |
           mkdir -p allure-report/history
-          cp -r reports/allure-report/history/* allure-report/history/ 2>/dev/null || true
+          if [ -d "reports/allure-report/history" ]; then
+            cp -r reports/allure-report/history/* allure-report/history/ 2>/dev/null || true
+            echo "New history saved"
+          fi
 
       - name: Upload Allure report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
+          retention-days: 7
 
   deploy:
     needs: test

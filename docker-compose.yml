@@ -21,8 +21,6 @@ services:
     networks:
       - test-net
 
-    user: root
-
     command: ["bash", "./run_tests.sh"]
 
 

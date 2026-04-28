@@ -3,8 +3,8 @@ name: Playwright CI/CD
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
 
+# 🔥 КЛЮЧЕВОЙ ФИКС (убирает 403)
 permissions:
   contents: write
 
@@ -16,150 +16,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Load previous Allure history via GitHub API
+      # фиксим папку reports
+      - name: Prepare reports folder
         run: |
-          mkdir -p reports/allure-history
-          
-          echo "📥 Loading previous Allure history from gh-pages branch..."
-          echo "Repository: ${{ github.repository }}"
-          
-          # Пробуем загрузить историю через GitHub API
-          API_URL="https://api.github.com/repos/${{ github.repository }}/contents/allure-report/history?ref=gh-pages"
-          
-          echo "API URL: $API_URL"
-          
-          # Получаем список файлов истории
-          RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" \
-                    -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                    "$API_URL")
-          
-          echo "API Response length: $(echo "$RESPONSE" | wc -c) characters"
-          
-          # Проверяем, есть ли файлы
-          if echo "$RESPONSE" | grep -q '"download_url"'; then
-            echo "✅ Found existing history, downloading files..."
-            echo "$RESPONSE" | grep -o '"download_url":"[^"]*"' | sed 's/"download_url":"//;s/"//' > /tmp/urls.txt
-            
-            COUNT=0
-            while read url; do
-              if [ -n "$url" ]; then
-                filename=$(basename "$url")
-                curl -s -L -o "reports/allure-history/$filename" \
-                  -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$url"
-                echo "  📄 Downloaded: $filename"
-                COUNT=$((COUNT + 1))
-              fi
-            done < /tmp/urls.txt
-            echo "✅ Downloaded $COUNT history files"
-          else
-            echo "ℹ️ No existing history found in gh-pages/allure-report/history"
-            echo "API returned: $(echo "$RESPONSE" | head -c 200)"
-            
-            # Пробуем альтернативный путь (история может быть в корне)
-            API_URL2="https://api.github.com/repos/${{ github.repository }}/contents/history?ref=gh-pages"
-            echo "Trying alternative path: $API_URL2"
-            
-            RESPONSE2=$(curl -s -H "Accept: application/vnd.github.v3+json" \
-                      -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                      "$API_URL2")
-            
-            if echo "$RESPONSE2" | grep -q '"download_url"'; then
-              echo "✅ Found history in root/history!"
-              echo "$RESPONSE2" | grep -o '"download_url":"[^"]*"' | sed 's/"download_url":"//;s/"//' > /tmp/urls.txt
-              
-              while read url; do
-                if [ -n "$url" ]; then
-                  filename=$(basename "$url")
-                  curl -s -L -o "reports/allure-history/$filename" \
-                    -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$url"
-                  echo "  📄 Downloaded: $filename"
-                fi
-              done < /tmp/urls.txt
-            else
-              echo "ℹ️ No history found anywhere, starting fresh"
-              echo '[]' > reports/allure-history/trend.json
-            fi
-          fi
-          
-          # Показываем что загрузили
-          echo ""
-          echo "📁 History directory contents after download:"
-          ls -la reports/allure-history/ || echo "  (empty)"
-          echo ""
-          if [ -d "reports/allure-history" ] && [ "$(ls -A reports/allure-history 2>/dev/null)" ]; then
-            echo "✅ History loaded successfully with $(ls -1 reports/allure-history | wc -l) files"
-          else
-            echo "⚠️ WARNING: History directory is empty after download!"
-          fi
+          mkdir -p reports
+          chmod -R 777 reports || true
 
       - name: Stop old containers
-        run: docker compose down || true
+        run: docker compose down --remove-orphans || true
 
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
 
-      - name: Debug - Check if history was generated
-        run: |
-          echo "🔍 Checking if Allure generated history..."
-          echo "Contents of reports/allure-report/history:"
-          if [ -d "reports/allure-report/history" ]; then
-            ls -la reports/allure-report/history/
-            echo "Number of files: $(ls -1 reports/allure-report/history | wc -l)"
-          else
-            echo "❌ reports/allure-report/history does NOT exist!"
-          fi
-          
-          echo ""
-          echo "Contents of reports/allure-history (input history):"
-          if [ -d "reports/allure-history" ]; then
-            ls -la reports/allure-history/
-          else
-            echo "❌ reports/allure-history does NOT exist!"
-          fi
-
-      - name: Save new history for next run
-        run: |
-          echo "💾 Saving new Allure history for next run..."
-          
-          # Создаём директорию для сохранения истории
-          mkdir -p allure-history
-          
-          # Копируем новую историю из сгенерированного отчёта
-          if [ -d "reports/allure-report/history" ] && [ "$(ls -A reports/allure-report/history 2>/dev/null)" ]; then
-            cp -r reports/allure-report/history/* allure-history/
-            echo "✅ New history saved ($(ls -1 allure-history | wc -l) files)"
-            ls -la allure-history/
-          else
-            echo "⚠️ No new history generated by Allure!"
-            echo "This is the problem - Allure didn't create history files"
-            
-            # Сохраняем то, что было загружено, если ничего нового не сгенерировалось
-            if [ -d "reports/allure-history" ] && [ "$(ls -A reports/allure-history 2>/dev/null)" ]; then
-              cp -r reports/allure-history/* allure-history/
-              echo "✅ Previous history preserved"
-            else
-              echo '[]' > allure-history/trend.json
-              echo "📁 Placeholder history created"
-            fi
-          fi
-          
-          echo ""
-          echo "📁 Final allure-history contents to upload:"
-          ls -la allure-history/
-
-      - name: Upload Allure report (artifact)
+      - name: Upload Allure report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
-          retention-days: 7
-
-      - name: Upload Allure history (artifact - backup)
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-history
-          path: allure-history/
-          retention-days: 30
 
   deploy:
     needs: test
@@ -167,27 +40,14 @@ jobs:
     if: success()
 
     steps:
-      - name: Download Allure report artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: allure-report
           path: allure-report
-
-      - name: Debug - Check report before deploy
-        run: |
-          echo "🔍 Checking report contents before deploy:"
-          echo "Allure report history folder:"
-          ls -la allure-report/history/ || echo "❌ No history folder in report!"
-          echo ""
-          echo "Number of history files: $(find allure-report/history -name "*.json" 2>/dev/null | wc -l)"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: allure-report
-          publish_branch: gh-pages
-          keep_files: false
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy Allure report from commit ${{ github.sha }}'

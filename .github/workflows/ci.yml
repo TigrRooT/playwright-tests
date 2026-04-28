@@ -3,6 +3,7 @@ name: Playwright CI/CD
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:  # для ручного запуска
 
 permissions:
   contents: write
@@ -15,22 +16,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 👉 Скачиваем историю из предыдущего artifact (не git clone!)
-      - name: Download previous Allure history
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-history
-          path: reports/allure-history/
-        continue-on-error: true
-
-      - name: Prepare allure directory (fallback)
+      # 👉 Клонируем ТОЛЬКО папку history из gh-pages (быстро и без зависаний)
+      - name: Load previous Allure history from gh-pages
         run: |
           mkdir -p reports/allure-history
-          if [ -z "$(ls -A reports/allure-history)" ]; then
-            echo "No previous history found, starting fresh"
+          
+          # Создаём временную папку
+          mkdir -p temp-gh-pages
+          cd temp-gh-pages
+          
+          # Инициализируем пустой репозиторий
+          git init
+          git remote add origin https://github.com/${{ github.repository }}
+          
+          # Включаем спарс-чекаут (скачиваем только нужные файлы)
+          git config core.sparseCheckout true
+          echo "allure-report/history/*" >> .git/info/sparse-checkout
+          echo "history/*" >> .git/info/sparse-checkout
+          
+          # Скачиваем только последний коммит ветки gh-pages (без истории)
+          git pull --depth=1 origin gh-pages 2>/dev/null || true
+          
+          # Копируем историю если есть
+          if [ -d "allure-report/history" ]; then
+            cp -r allure-report/history/* ../reports/allure-history/ 2>/dev/null || true
+            echo "✅ History loaded from gh-pages"
+          elif [ -d "history" ]; then
+            cp -r history/* ../reports/allure-history/ 2>/dev/null || true
+            echo "✅ History loaded from gh-pages (root)"
           else
-            echo "Previous history loaded successfully"
+            echo "ℹ️ No existing history found"
           fi
+          
+          cd ..
+          rm -rf temp-gh-pages
 
       - name: Stop old containers
         run: docker compose down || true
@@ -38,28 +57,12 @@ jobs:
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
 
-      # 👉 Сохраняем историю из нового отчета для следующего запуска
-      - name: Save history for next run
-        run: |
-          mkdir -p allure-history
-          if [ -d "reports/allure-report/history" ]; then
-            cp -r reports/allure-report/history/* allure-history/
-            echo "History saved for next run"
-          fi
-
-      - name: Upload Allure report (для деплоя)
+      - name: Upload Allure report (для отладки)
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
           retention-days: 7
-
-      - name: Upload Allure history (для следующего запуска)
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-history
-          path: allure-history/
-          retention-days: 30
 
   deploy:
     needs: test

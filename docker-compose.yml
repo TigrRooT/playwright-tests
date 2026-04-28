@@ -5,11 +5,8 @@ services:
       network: host
     container_name: my-tests
     volumes:
-      # Создаем директорию reports на хосте с правильными правами
       - ./reports:/app/reports
     network_mode: host
     dns:
       - 8.8.8.8
       - 1.1.1.1
-    # Добавляем пользователя для запуска (необязательно, т.к. определен в Dockerfile)
-    user: "tester"

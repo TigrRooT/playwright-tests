@@ -3,7 +3,7 @@ name: Playwright CI/CD
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # для ручного запуска
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,40 +16,43 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 👉 Клонируем ТОЛЬКО папку history из gh-pages (быстро и без зависаний)
-      - name: Load previous Allure history from gh-pages
+      - name: Load previous Allure history via GitHub API
         run: |
           mkdir -p reports/allure-history
           
-          # Создаём временную папку
-          mkdir -p temp-gh-pages
-          cd temp-gh-pages
+          echo "📥 Loading previous Allure history from gh-pages branch..."
           
-          # Инициализируем пустой репозиторий
-          git init
-          git remote add origin https://github.com/${{ github.repository }}
+          # Пробуем загрузить историю через GitHub API
+          API_URL="https://api.github.com/repos/${{ github.repository }}/contents/allure-report/history?ref=gh-pages"
           
-          # Включаем спарс-чекаут (скачиваем только нужные файлы)
-          git config core.sparseCheckout true
-          echo "allure-report/history/*" >> .git/info/sparse-checkout
-          echo "history/*" >> .git/info/sparse-checkout
+          # Получаем список файлов истории
+          FILES=$(curl -s -H "Accept: application/vnd.github.v3+json" \
+                    -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                    "$API_URL" | jq -r '.[].download_url' 2>/dev/null || echo "")
           
-          # Скачиваем только последний коммит ветки gh-pages (без истории)
-          git pull --depth=1 origin gh-pages 2>/dev/null || true
-          
-          # Копируем историю если есть
-          if [ -d "allure-report/history" ]; then
-            cp -r allure-report/history/* ../reports/allure-history/ 2>/dev/null || true
-            echo "✅ History loaded from gh-pages"
-          elif [ -d "history" ]; then
-            cp -r history/* ../reports/allure-history/ 2>/dev/null || true
-            echo "✅ History loaded from gh-pages (root)"
+          if [ -n "$FILES" ] && [ "$FILES" != "null" ] && [ "$FILES" != "" ]; then
+            echo "✅ Found existing history, downloading files..."
+            COUNT=0
+            echo "$FILES" | while read -r url; do
+              if [ -n "$url" ]; then
+                filename=$(basename "$url")
+                curl -s -L -o "reports/allure-history/$filename" \
+                  -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$url"
+                echo "  📄 Downloaded: $filename"
+                COUNT=$((COUNT + 1))
+              fi
+            done
+            echo "✅ Downloaded $COUNT history files"
           else
-            echo "ℹ️ No existing history found"
+            echo "ℹ️ No existing history found (first run or fresh start)"
+            # Создаём пустую историю
+            echo '[]' > reports/allure-history/trend.json
+            echo "📁 Created fresh history directory"
           fi
           
-          cd ..
-          rm -rf temp-gh-pages
+          # Показываем что загрузили
+          echo "📁 History directory contents:"
+          ls -la reports/allure-history/ || echo "  (empty)"
 
       - name: Stop old containers
         run: docker compose down || true
@@ -57,12 +60,43 @@ jobs:
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
 
-      - name: Upload Allure report (для отладки)
+      - name: Save new history for next run
+        run: |
+          echo "💾 Saving new Allure history for next run..."
+          
+          # Создаём директорию для сохранения истории
+          mkdir -p allure-history
+          
+          # Копируем новую историю из сгенерированного отчёта
+          if [ -d "reports/allure-report/history" ] && [ "$(ls -A reports/allure-report/history 2>/dev/null)" ]; then
+            cp -r reports/allure-report/history/* allure-history/
+            echo "✅ New history saved ($(ls -1 allure-history | wc -l) files)"
+            ls -la allure-history/
+          else
+            echo "⚠️ No new history generated, keeping placeholder"
+            # Сохраняем то, что было загружено, если ничего нового не сгенерировалось
+            if [ -d "reports/allure-history" ] && [ "$(ls -A reports/allure-history 2>/dev/null)" ]; then
+              cp -r reports/allure-history/* allure-history/
+              echo "✅ Previous history preserved"
+            else
+              echo '[]' > allure-history/trend.json
+              echo "📁 Placeholder history created"
+            fi
+          fi
+
+      - name: Upload Allure report (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
           retention-days: 7
+
+      - name: Upload Allure history (artifact - backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-history
+          path: allure-history/
+          retention-days: 30
 
   deploy:
     needs: test
@@ -70,7 +104,7 @@ jobs:
     if: success()
 
     steps:
-      - name: Download artifact
+      - name: Download Allure report artifact
         uses: actions/download-artifact@v4
         with:
           name: allure-report
@@ -83,3 +117,6 @@ jobs:
           publish_dir: allure-report
           publish_branch: gh-pages
           keep_files: false
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy Allure report from commit ${{ github.sha }}'

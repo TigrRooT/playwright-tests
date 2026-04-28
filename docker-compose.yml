@@ -4,6 +4,8 @@ services:
       context: .
       network: host
 
+    container_name: my-tests
+
     volumes:
       - ./reports:/app/reports
 
@@ -11,7 +13,3 @@ services:
 
     environment:
       - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1

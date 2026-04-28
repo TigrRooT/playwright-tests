@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main ]
 
+# 🔥 КЛЮЧЕВОЙ ФИКС (убирает 403)
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: self-hosted
@@ -12,14 +16,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # FIX permissions (ВАЖНО)
+      # фиксим папку reports
       - name: Prepare reports folder
         run: |
           mkdir -p reports
           chmod -R 777 reports || true
 
       - name: Stop old containers
-        run: docker compose down || true
+        run: docker compose down --remove-orphans || true
 
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit

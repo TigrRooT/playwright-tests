@@ -15,25 +15,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 👉 Загружаем историю предыдущих отчетов (исправлено)
-      - name: Load previous Allure history
+      # 👉 ВРЕМЕННО УДАЛЯЕМ ЭТОТ ШАГ
+      # - name: Load previous Allure history
+      #   run: ...
+      
+      # Вместо этого просто создаем пустую папку
+      - name: Prepare allure directory
         run: |
-          # Проверяем существует ли ветка gh-pages
-          if git ls-remote --heads https://github.com/${{ github.repository }} gh-pages | grep -q gh-pages; then
-            echo "Branch gh-pages exists, cloning..."
-            git clone --depth=1 --branch gh-pages https://github.com/${{ github.repository }} gh-pages || \
-            git clone --branch gh-pages https://github.com/${{ github.repository }} gh-pages || true
-          else
-            echo "Branch gh-pages does not exist yet, skipping history clone"
-          fi
-          
           mkdir -p reports/allure-history
-          if [ -d "gh-pages/history" ]; then
-            cp -r gh-pages/history/* reports/allure-history/ 2>/dev/null || true
-            echo "History copied successfully"
-          else
-            echo "No history found, starting fresh"
-          fi
+          echo "Starting fresh - no previous history"
 
       - name: Stop old containers
         run: docker compose down || true
@@ -41,21 +31,11 @@ jobs:
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
 
-      # 👉 Сохраняем history из нового отчета
-      - name: Save history for next run
-        run: |
-          mkdir -p allure-report/history
-          if [ -d "reports/allure-report/history" ]; then
-            cp -r reports/allure-report/history/* allure-report/history/ 2>/dev/null || true
-            echo "New history saved"
-          fi
-
       - name: Upload Allure report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
-          retention-days: 7
 
   deploy:
     needs: test
@@ -74,4 +54,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: allure-report
+          publish_branch: gh-pages
+          keep_files: false
           

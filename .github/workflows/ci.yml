@@ -9,16 +9,11 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Clean workspace (fix permissions issue)
-        run: |
-          sudo chown -R bitnami:bitnami /home/bitnami/actions-runner/_work || true
-          sudo rm -rf .pytest_cache reports || true
-
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Stop old containers
-        run: docker compose down --remove-orphans || true
+        run: docker compose down || true
 
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit

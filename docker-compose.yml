@@ -1,51 +1,15 @@
 services:
-  app:
-    image: node:20-alpine
-
-    container_name: my-app
-
-    working_dir: /app
-
-    volumes:
-      - ./app:/app
-
-    ports:
-      - "8080:8080"
-
-    restart: unless-stopped
-
-    command: ["npm", "start"]
-
-    networks:
-      - test-net
-
-
-  my-tests:
-    build: .
-
+  tests:
+    build:
+      context: .
+      network: host
     container_name: my-tests
-
-    working_dir: /app
-
     volumes:
-      - .:/app
+      # Создаем директорию reports на хосте с правильными правами
       - ./reports:/app/reports
-
-    environment:
-      BASE_URL: "http://app:8080"
-      PYTHONUNBUFFERED: 1
-
-    depends_on:
-      - app
-
-    user: root
-
-    networks:
-      - test-net
-
-    command: ["bash", "./run_tests.sh"]
-
-
-networks:
-  test-net:
-    driver: bridge
+    network_mode: host
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    # Добавляем пользователя для запуска (необязательно, т.к. определен в Dockerfile)
+    user: "tester"

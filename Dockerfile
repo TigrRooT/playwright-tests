@@ -1,11 +1,16 @@
-# Используем Python 3.13.1
+# ===============================
+# Base image
+# ===============================
 FROM python:3.13.1-slim
 
-# Настройка DNS внутри контейнера
-RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf
-RUN echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+# ===============================
+# Environment
+# ===============================
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Установка системных зависимостей для Playwright и Allure
+# ===============================
+# System dependencies
+# ===============================
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -32,41 +37,58 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка Allure
+# ===============================
+# Allure installation
+# ===============================
 RUN wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.tgz \
     && tar -xzf allure-2.29.0.tgz \
     && mv allure-2.29.0 /opt/allure \
     && ln -s /opt/allure/bin/allure /usr/local/bin/allure \
     && rm allure-2.29.0.tgz
 
+# ===============================
+# Workdir
+# ===============================
 WORKDIR /app
 
-# Копируем зависимости
+# ===============================
+# Python dependencies
+# ===============================
 COPY requirements.txt .
-
-# Устанавливаем Python зависимости (включая pytest, allure-pytest, pytest-cov, playwright, pytest-playwright)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Установка браузеров Playwright
+# ===============================
+# Install Playwright browsers (FIX)
+# ===============================
+RUN mkdir -p /ms-playwright && chmod -R 777 /ms-playwright
 RUN playwright install chromium
 
-# Копируем проект
+# ===============================
+# Copy project
+# ===============================
 COPY . .
 
-# Делаем скрипт исполняемым
+# ===============================
+# Permissions
+# ===============================
 RUN chmod +x run_tests.sh
 
-# Создаем директории для отчетов
-RUN mkdir -p reports/allure-results reports/allure-history reports/allure-report
+# ===============================
+# Reports directories
+# ===============================
+RUN mkdir -p reports/allure-results \
+    reports/allure-history \
+    reports/allure-report
 
-# Создаем пользователя
+# ===============================
+# User
+# ===============================
 RUN useradd -m tester
-
-# Меняем владельца файлов
 RUN chown -R tester:tester /app
 
-# Переключаемся на пользователя
 USER tester
 
-# Команда запуска тестов
+# ===============================
+# Run tests
+# ===============================
 CMD ["./run_tests.sh"]

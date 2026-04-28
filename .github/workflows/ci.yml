@@ -12,11 +12,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 🔥 FIX: права на reports (решает Permission denied)
-      - name: Prepare reports folder permissions
+      # FIX permissions (ВАЖНО)
+      - name: Prepare reports folder
         run: |
           mkdir -p reports
-          sudo chown -R $USER:$USER reports || true
           chmod -R 777 reports || true
 
       - name: Stop old containers

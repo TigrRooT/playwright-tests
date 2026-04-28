@@ -3,7 +3,6 @@ services:
     build:
       context: .
       network: host
-    container_name: my-tests
     volumes:
       - ./reports:/app/reports
     network_mode: host

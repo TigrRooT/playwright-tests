@@ -3,7 +3,6 @@ version: "3.9"
 services:
   my-tests:
     build: .
-    container_name: my-tests
 
     # ВАЖНО: одинаковый UID с runner (обычно 1000)
     user: "1000:1000"

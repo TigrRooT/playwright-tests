@@ -15,15 +15,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 👉 ВРЕМЕННО УДАЛЯЕМ ЭТОТ ШАГ
-      # - name: Load previous Allure history
-      #   run: ...
-      
-      # Вместо этого просто создаем пустую папку
-      - name: Prepare allure directory
+      # 👉 Скачиваем историю из предыдущего artifact (не git clone!)
+      - name: Download previous Allure history
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-history
+          path: reports/allure-history/
+        continue-on-error: true
+
+      - name: Prepare allure directory (fallback)
         run: |
           mkdir -p reports/allure-history
-          echo "Starting fresh - no previous history"
+          if [ -z "$(ls -A reports/allure-history)" ]; then
+            echo "No previous history found, starting fresh"
+          else
+            echo "Previous history loaded successfully"
+          fi
 
       - name: Stop old containers
         run: docker compose down || true
@@ -31,11 +38,28 @@ jobs:
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
 
-      - name: Upload Allure report
+      # 👉 Сохраняем историю из нового отчета для следующего запуска
+      - name: Save history for next run
+        run: |
+          mkdir -p allure-history
+          if [ -d "reports/allure-report/history" ]; then
+            cp -r reports/allure-report/history/* allure-history/
+            echo "History saved for next run"
+          fi
+
+      - name: Upload Allure report (для деплоя)
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
+          retention-days: 7
+
+      - name: Upload Allure history (для следующего запуска)
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-history
+          path: allure-history/
+          retention-days: 30
 
   deploy:
     needs: test
@@ -56,5 +80,4 @@ jobs:
           publish_dir: allure-report
           publish_branch: gh-pages
           keep_files: false
-          
           

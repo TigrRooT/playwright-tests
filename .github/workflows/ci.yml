@@ -4,7 +4,6 @@ on:
   push:
     branches: [ main ]
 
-# 🔥 КЛЮЧЕВОЙ ФИКС (убирает 403)
 permissions:
   contents: write
 
@@ -16,17 +15,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # фиксим папку reports
-      - name: Prepare reports folder
+      # 👉 Загружаем историю предыдущих отчетов
+      - name: Load previous Allure history
         run: |
-          mkdir -p reports
-          chmod -R 777 reports || true
+          git clone --depth=1 --branch gh-pages https://github.com/${{ github.repository }} gh-pages || true
+          mkdir -p reports/allure-history
+          cp -r gh-pages/history/* reports/allure-history/ 2>/dev/null || true
 
       - name: Stop old containers
-        run: docker compose down --remove-orphans || true
+        run: docker compose down || true
 
       - name: Build and run tests
         run: docker compose up --build --abort-on-container-exit
+
+      # 👉 Сохраняем history из нового отчета
+      - name: Save history for next run
+        run: |
+          mkdir -p allure-report/history
+          cp -r reports/allure-report/history/* allure-report/history/ 2>/dev/null || true
 
       - name: Upload Allure report
         uses: actions/upload-artifact@v4

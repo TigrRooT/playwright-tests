@@ -25,7 +25,7 @@ services:
 
 
   app:
-    image: your-app-image:latest
+    build: .
     container_name: my-app
 
     ports:

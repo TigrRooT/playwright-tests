@@ -2,16 +2,34 @@ services:
   my-tests:
     build: .
 
+    container_name: my-tests
+
+    working_dir: /app
+
     volumes:
       - .:/app
       - ./reports:/app/reports
 
-    working_dir: /app
-
     environment:
-      - BASE_URL=http://host.docker.internal:8080
+      BASE_URL: "http://app:8080"
 
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - app
 
     command: ["bash", "./run_tests.sh"]
+
+    # важно для нормальных прав в CI
+    user: root
+
+
+  app:
+    image: your-app-image:latest
+    container_name: my-app
+
+    ports:
+      - "8080:8080"
+
+    restart: unless-stopped
+
+    # если у тебя Python/Node/что угодно — замени команду
+    command: ["bash", "-c", "npm start"]

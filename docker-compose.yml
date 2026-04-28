@@ -12,14 +12,18 @@ services:
 
     environment:
       BASE_URL: "http://app:8080"
+      PYTHONUNBUFFERED: 1
 
     depends_on:
       - app
 
-    command: ["bash", "./run_tests.sh"]
+    # лучше фиксировать сеть явно (CI стабильнее)
+    networks:
+      - test-net
 
-    # важно для нормальных прав в CI
     user: root
+
+    command: ["bash", "./run_tests.sh"]
 
 
   app:
@@ -31,5 +35,12 @@ services:
 
     restart: unless-stopped
 
-    # если у тебя Python/Node/что угодно — замени команду
+    networks:
+      - test-net
+
     command: ["bash", "-c", "npm start"]
+
+
+networks:
+  test-net:
+    driver: bridge

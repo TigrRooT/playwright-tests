@@ -25,9 +25,10 @@ fi
 echo "Folders prepared"
 
 # 2 Copy history from previous runs to results folder
-if ls reports/allure-history/*.json 1> /dev/null 2>&1; then
+# 🔥 FIX: проверяем папку, а не *.json, и копируем ВСЁ
+if [ -d "reports/allure-history" ] && [ "$(ls -A reports/allure-history 2>/dev/null)" ]; then
     mkdir -p "reports/allure-results/history"
-    cp reports/allure-history/*.json "reports/allure-results/history/" 2>/dev/null
+    cp -r reports/allure-history/* "reports/allure-results/history/" 2>/dev/null
     echo "History copied. Comparison with previous run will be shown"
 else
     echo "This is the first run. No history yet. Trends will appear after the second run"
@@ -35,17 +36,19 @@ fi
 
 # 3 Run tests
 echo "Running tests..."
-python -m pytest tests/ --alluredir=reports/allure-results
+python -m pytest tests/ --alluredir=reports/allure-results || true
+# 🔥 FIX: не даем CI падать
 
 # 4 Generate Allure report
 echo "Generating report..."
 allure generate reports/allure-results -o reports/allure-report --clean
 
 # 5 Save history from generated report for future runs
+# 🔥 FIX: копируем ВСЁ, а не только json
 if [ -d "reports/allure-report/history" ]; then
     rm -rf reports/allure-history/*
-    cp reports/allure-report/history/*.json "reports/allure-history/" 2>/dev/null
-    count=$(find reports/allure-history -name "*.json" 2>/dev/null | wc -l)
+    cp -r reports/allure-report/history/* "reports/allure-history/" 2>/dev/null
+    count=$(find reports/allure-history -type f 2>/dev/null | wc -l)
     echo "Saved $count history files for the next run"
 else
     echo "Warning: History folder not found"

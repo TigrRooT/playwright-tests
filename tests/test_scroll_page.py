@@ -2,7 +2,7 @@
 import pytest
 import allure
 
-BASE_URL = "http://localhost:8080"
+BASE_URL = "https://rutube.ru/"
 
 @allure.feature("Главная страница")
 @allure.story("Прокрутка страницы")

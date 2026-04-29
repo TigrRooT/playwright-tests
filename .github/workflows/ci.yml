@@ -31,14 +31,14 @@ jobs:
           mkdir -p reports/allure-history
 
           if [ -d "gh-pages/history" ]; then
-            echo "📥 Found history in gh-pages/history"
+            echo "Found history in gh-pages/history"
             cp -r gh-pages/history/* reports/allure-history/ || true
-            echo "✅ History copied"
+            echo "History copied"
           else
-            echo "ℹ️ No history found (first run)"
+            echo "No history found (first run)"
           fi
 
-          echo "📁 Loaded history:"
+          echo "Loaded history:"
           ls -la reports/allure-history || echo "empty"
 
       # 4. Останавливаем старые контейнеры
@@ -52,8 +52,8 @@ jobs:
       # 6. Проверка истории после генерации
       - name: Debug - Check generated history
         run: |
-          echo "📁 reports/allure-report/history:"
-          ls -la reports/allure-report/history || echo "❌ no history"
+          echo "reports/allure-report/history:"
+          ls -la reports/allure-report/history || echo "no history"
 
       # 7. Сохраняем history для следующего запуска
       - name: Save new history
@@ -62,12 +62,12 @@ jobs:
 
           if [ -d "reports/allure-report/history" ]; then
             cp -r reports/allure-report/history/* history/
-            echo "✅ History prepared for deploy"
+            echo "History prepared for deploy"
           else
-            echo "❌ No history generated!"
+            echo "No history generated!"
           fi
 
-          echo "📁 Final history:"
+          echo "Final history:"
           ls -la history
 
       # 8. Артефакт отчета
@@ -93,11 +93,11 @@ jobs:
       # 2. Проверяем перед деплоем
       - name: Debug before deploy
         run: |
-          echo "📁 Report contents:"
+          echo "Report contents:"
           ls -la allure-report
           echo ""
-          echo "📁 History in report:"
-          ls -la allure-report/history || echo "❌ no history"
+          echo "History in report:"
+          ls -la allure-report/history || echo "no history"
 
       # 3. Деплой (ВАЖНО: keep_files=true)
       - name: Deploy to GitHub Pages

@@ -3,7 +3,7 @@ import pytest
 import allure
 
 
-BASE_URL = "http://google.com"
+BASE_URL = "http://localhost:8080"
 
 @allure.feature("Главная страница")
 @allure.story("Открытие страницы")

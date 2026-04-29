@@ -25,7 +25,7 @@ fi
 echo "Folders prepared"
 
 # 2 Copy history from previous runs to results folder
-# 🔥 FIX: проверяем папку, а не *.json, и копируем ВСЁ
+# FIX: проверяем папку, а не *.json, и копируем ВСЁ
 if [ -d "reports/allure-history" ] && [ "$(ls -A reports/allure-history 2>/dev/null)" ]; then
     mkdir -p "reports/allure-results/history"
     cp -r reports/allure-history/* "reports/allure-results/history/" 2>/dev/null
@@ -37,14 +37,14 @@ fi
 # 3 Run tests
 echo "Running tests..."
 python -m pytest tests/ --alluredir=reports/allure-results || true
-# 🔥 FIX: не даем CI падать
+# FIX: не даем CI падать
 
 # 4 Generate Allure report
 echo "Generating report..."
 allure generate reports/allure-results -o reports/allure-report --clean
 
 # 5 Save history from generated report for future runs
-# 🔥 FIX: копируем ВСЁ, а не только json
+# FIX: копируем ВСЁ, а не только json
 if [ -d "reports/allure-report/history" ]; then
     rm -rf reports/allure-history/*
     cp -r reports/allure-report/history/* "reports/allure-history/" 2>/dev/null

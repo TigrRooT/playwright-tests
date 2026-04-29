@@ -1,5 +1,5 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"failed","Wed Apr 29 00:35:03 UTC 2026","Wed Apr 29 00:35:07 UTC 2026","3619","tests","test_scroll_page","","","","Проверка, что страницу можно прокручивать",""
-"passed","Wed Apr 29 00:34:59 UTC 2026","Wed Apr 29 00:35:03 UTC 2026","3939","tests","test_open_site","","","","Проверка, что страница успешно открывается","
+"passed","Wed Apr 29 00:40:20 UTC 2026","Wed Apr 29 00:40:26 UTC 2026","5189","tests","test_open_site","","","","Проверка, что страница успешно открывается","
 Тест 1: Проверить, что страница успешно открывается
 "
+"failed","Wed Apr 29 00:40:26 UTC 2026","Wed Apr 29 00:40:29 UTC 2026","3322","tests","test_scroll_page","","","","Проверка, что страницу можно прокручивать",""

@@ -4,6 +4,9 @@ services:
       context: .
       network: host
 
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     container_name: my-tests
 
     volumes:

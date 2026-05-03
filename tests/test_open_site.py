@@ -30,4 +30,3 @@ def test_page_opens_successfully(page):
         assert "error" not in title_lower, "Страница показывает ошибку"
     
     print("Страница успешно открылась и содержит контент")
-    

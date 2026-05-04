@@ -99,7 +99,7 @@ jobs:
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: "❌ Tests FAILED - ${{ github.repository }}"
-          to: your_email@example.com
+          to: ${{ secrets.EMAIL_USERNAME }}
           from: GitHub Actions
           body: |
             Tests failed!

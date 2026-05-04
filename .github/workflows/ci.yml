@@ -43,17 +43,23 @@ jobs:
       - name: Stop old containers
         run: docker compose down || true
 
-      # 5. Запуск тестов
+      # ❗ 5. ЗАПУСК ТЕСТОВ (ИСПРАВЛЕНО)
       - name: Build and run tests
-        run: docker compose up --build --abort-on-container-exit
+        run: |
+          docker compose up --build --abort-on-container-exit
+          EXIT_CODE=$?
+          echo "Exit code: $EXIT_CODE"
+          exit $EXIT_CODE
 
       # 6. Проверка истории после генерации
       - name: Debug - Check generated history
+        if: always()
         run: |
           ls -la reports/allure-report/history || echo "no history"
 
       # 7. Сохранение history
       - name: Save new history
+        if: always()
         run: |
           mkdir -p history
 
@@ -65,14 +71,15 @@ jobs:
 
           ls -la history
 
-      # 8. Upload report
+      # 8. Upload report (даже если тесты упали)
       - name: Upload Allure report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
 
-      # 9. EMAIL ON FAILURE ❌
+      # ❗ 9. EMAIL ON FAILURE (с debug)
       - name: Send email on failure (SMTP)
         if: failure()
         run: |
@@ -98,7 +105,10 @@ jobs:
 
           chmod 600 ~/.msmtprc
 
-          echo -e "Subject: ❌ Tests FAILED\n\nТесты упали\nRepo: ${{ github.repository }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp $EMAIL_USERNAME
+          echo -e "Subject: ❌ Tests FAILED\n\nТесты упали\nRepo: ${{ github.repository }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp -v $EMAIL_USERNAME
+
+          echo "==== MSMTP LOG ===="
+          cat ~/.msmtp.log || true
         env:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}

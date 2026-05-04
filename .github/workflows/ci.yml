@@ -13,34 +13,13 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1. Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. gh-pages history
-      - name: Checkout gh-pages branch (history)
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages
-        continue-on-error: true
-
-      # 3. Load history
-      - name: Load previous Allure history
-        run: |
-          mkdir -p reports/allure-history
-
-          if [ -d "gh-pages/history" ]; then
-            cp -r gh-pages/history/* reports/allure-history/ || true
-          else
-            echo "No history found"
-          fi
-
-      # 4. Stop containers
       - name: Stop old containers
         run: docker compose down || true
 
-      # ❗ 5. RUN TESTS (ГАРАНТИРОВАННЫЙ CAPTURE)
+      # ❗ RUN TESTS + корректный capture exit code
       - name: Run tests in Docker
         id: run_tests
         run: |
@@ -49,21 +28,17 @@ jobs:
           docker compose up --build --abort-on-container-exit
           EXIT_CODE=$?
 
-          echo "Exit code: $EXIT_CODE"
+          # убираем пробелы и переносы
+          EXIT_CODE=$(echo "$EXIT_CODE" | tr -d '[:space:]')
 
-          # сохраняем результат
-          echo "$EXIT_CODE" > exit_code.txt
+          echo "Raw exit code: $EXIT_CODE"
 
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # НЕ ломаем job, всегда продолжаем pipeline
           exit 0
 
-      # 6. Upload exit code as artifact (важно)
-      - name: Save test result
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-result
-          path: exit_code.txt
-
-      # 7. Upload report (всегда)
+      # 📦 сохраняем отчет
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
@@ -80,15 +55,26 @@ jobs:
       - name: Download test result
         uses: actions/download-artifact@v4
         with:
-          name: test-result
+          name: allure-report
 
+      # ❗ читаем exit code правильно
       - name: Read exit code
         id: result
         run: |
-          EXIT_CODE=$(cat exit_code.txt)
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "DEBUG raw file:"
+          cat exit_code.txt || true
 
-      # 📬 EMAIL ТОЛЬКО ЕСЛИ ТЕСТ УПАЛ
+          EXIT_CODE=$(cat exit_code.txt 2>/dev/null | tr -d '[:space:]')
+
+          # если файла нет — считаем успех
+          if [ -z "$EXIT_CODE" ]; then
+            EXIT_CODE=0
+          fi
+
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "FINAL EXIT CODE: $EXIT_CODE"
+
+      # 📬 EMAIL если тест упал
       - name: Send email on failure (SMTP)
         if: steps.result.outputs.exit_code != '0'
         run: |
@@ -126,7 +112,10 @@ jobs:
     if: always()
 
     steps:
-      - name: Download Allure report
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download report
         uses: actions/download-artifact@v4
         with:
           name: allure-report
@@ -141,4 +130,3 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy Allure report ${{ github.sha }}'

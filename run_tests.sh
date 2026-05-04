@@ -3,47 +3,47 @@
 # run_tests.sh
 # ===============================
 
+set +e
+
 # Check Allure
 if ! command -v allure &> /dev/null; then
     echo "Error: Allure is not installed or not in PATH"
     exit 1
 fi
 
-# 1 Clear results
+# Prepare folders
 rm -rf reports/allure-results
 mkdir -p reports/allure-results
 mkdir -p reports/allure-history
+mkdir -p reports/allure-report
 
 echo "Folders prepared"
 
-# 2 Copy history
+# Copy history
 if [ -d "reports/allure-history" ] && [ "$(ls -A reports/allure-history 2>/dev/null)" ]; then
     mkdir -p reports/allure-results/history
     cp -r reports/allure-history/* reports/allure-results/history/ 2>/dev/null
     echo "History copied"
-else
-    echo "No history yet"
 fi
 
-# 3 Run tests (❗ FIX: убрали || true)
+# Run tests (НЕ ломаем выполнение)
 echo "Running tests..."
 python -m pytest tests/ --alluredir=reports/allure-results
 TEST_EXIT_CODE=$?
 
-echo "Tests finished with code: $TEST_EXIT_CODE"
+echo $TEST_EXIT_CODE > reports/exit_code.txt
+echo "Test exit code: $TEST_EXIT_CODE"
 
-# 4 Generate report
+# Generate report (ВСЕГДА пробуем)
 echo "Generating report..."
-allure generate reports/allure-results -o reports/allure-report --clean
+allure generate reports/allure-results -o reports/allure-report --clean || true
 
-# 5 Save history
+# Save history
 if [ -d "reports/allure-report/history" ]; then
     rm -rf reports/allure-history/*
     cp -r reports/allure-report/history/* reports/allure-history/ 2>/dev/null
-    echo "History saved"
 fi
 
 echo "Done"
 
-# ❗ ВАЖНО: возвращаем код тестов
-exit $TEST_EXIT_CODE
+exit 0

@@ -16,29 +16,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Stop old containers
+      - name: Stop containers
         run: docker compose down || true
 
-      # 🔥 RUN TESTS (через твой bash скрипт)
+      # 🔥 RUN TESTS
       - name: Run tests
-        id: tests
         run: |
           chmod +x run_tests.sh
           ./run_tests.sh
-          EXIT_CODE=$?
 
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-
-          # НЕ ломаем pipeline
-          exit 0
-
-      # 📦 Upload report
+      # 📦 Upload report (НЕ падает если пусто)
       - name: Upload Allure report
-        if: always()
+        if: always() && hashFiles('reports/allure-report/**') != ''
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
+
+      # 📦 Upload exit code (ВАЖНО)
+      - name: Upload exit code
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-result
+          path: reports/exit_code.txt
 
   notify:
     needs: test
@@ -46,15 +47,21 @@ jobs:
     if: always()
 
     steps:
-      - name: Download report
+      - name: Download exit code
         uses: actions/download-artifact@v4
         with:
-          name: allure-report
-          path: allure-report
+          name: test-result
 
-      # 📬 EMAIL ЕСЛИ ТЕСТЫ УПАЛИ
-      - name: Send email on failure (SMTP)
-        if: steps.tests.outputs.exit_code != '0'
+      - name: Read exit code
+        id: status
+        run: |
+          EXIT_CODE=$(cat exit_code.txt | tr -d '[:space:]')
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "Exit code: $EXIT_CODE"
+
+      # 📬 EMAIL ЕСЛИ ПАДЕНИЕ
+      - name: Send email on failure
+        if: steps.status.outputs.exit_code != '0'
         run: |
           sudo apt-get update
           sudo apt-get install -y msmtp
@@ -98,8 +105,10 @@ jobs:
         with:
           name: allure-report
           path: allure-report
+        continue-on-error: true
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy
+        if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

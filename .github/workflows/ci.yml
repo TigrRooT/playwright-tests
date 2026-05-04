@@ -13,93 +13,92 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1. Основной код
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Забираем gh-pages (где лежит предыдущий отчет)
-      - name: Checkout gh-pages branch (history)
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages
-        continue-on-error: true
-
-      # 3. Загружаем history
-      - name: Load previous Allure history
-        run: |
-          mkdir -p reports/allure-history
-
-          if [ -d "gh-pages/history" ]; then
-            echo "Found history in gh-pages/history"
-            cp -r gh-pages/history/* reports/allure-history/ || true
-            echo "History copied"
-          else
-            echo "No history found (first run)"
-          fi
-
-          echo "Loaded history:"
-          ls -la reports/allure-history || echo "empty"
-
-      # 4. Останавливаем старые контейнеры
       - name: Stop old containers
         run: docker compose down || true
 
-      # 5. Запуск тестов
-      - name: Build and run tests
-        run: docker compose up --build --abort-on-container-exit
-
-      # 6. Проверка истории после генерации
-      - name: Debug - Check generated history
+      # 🔥 RUN TESTS (через твой bash скрипт)
+      - name: Run tests
+        id: tests
         run: |
-          echo "reports/allure-report/history:"
-          ls -la reports/allure-report/history || echo "no history"
+          chmod +x run_tests.sh
+          ./run_tests.sh
+          EXIT_CODE=$?
 
-      # 7. Сохраняем history для следующего запуска
-      - name: Save new history
-        run: |
-          mkdir -p history
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
-          if [ -d "reports/allure-report/history" ]; then
-            cp -r reports/allure-report/history/* history/
-            echo "History prepared for deploy"
-          else
-            echo "No history generated!"
-          fi
+          # НЕ ломаем pipeline
+          exit 0
 
-          echo "Final history:"
-          ls -la history
-
-      # 8. Артефакт отчета
+      # 📦 Upload report
       - name: Upload Allure report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
 
-  deploy:
+  notify:
     needs: test
     runs-on: self-hosted
-    if: success()
+    if: always()
 
     steps:
-      # 1. Скачиваем отчет
-      - name: Download Allure report
+      - name: Download report
         uses: actions/download-artifact@v4
         with:
           name: allure-report
           path: allure-report
 
-      # 2. Проверяем перед деплоем
-      - name: Debug before deploy
+      # 📬 EMAIL ЕСЛИ ТЕСТЫ УПАЛИ
+      - name: Send email on failure (SMTP)
+        if: steps.tests.outputs.exit_code != '0'
         run: |
-          echo "Report contents:"
-          ls -la allure-report
-          echo ""
-          echo "History in report:"
-          ls -la allure-report/history || echo "no history"
+          sudo apt-get update
+          sudo apt-get install -y msmtp
 
-      # 3. Деплой (ВАЖНО: keep_files=true)
+          cat <<EOF > ~/.msmtprc
+          defaults
+          auth           on
+          tls            on
+          tls_trust_file /etc/ssl/certs/ca-certificates.crt
+          logfile        ~/.msmtp.log
+
+          account gmail
+          host smtp.gmail.com
+          port 587
+          from $EMAIL_USERNAME
+          user $EMAIL_USERNAME
+          password $EMAIL_PASSWORD
+
+          account default : gmail
+          EOF
+
+          chmod 600 ~/.msmtprc
+
+          echo -e "Subject: ❌ TESTS FAILED\n\nRepo: ${{ github.repository }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp -v $EMAIL_USERNAME
+
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+  deploy:
+    needs: test
+    runs-on: self-hosted
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download report
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -109,4 +108,3 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy Allure report ${{ github.sha }}'

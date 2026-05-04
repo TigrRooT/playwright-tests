@@ -2,7 +2,7 @@
 import pytest
 import allure
 
-BASE_URL = "http://192.168.1.113/sample-page/"
+BASE_URL = "http://10.0.2.2:8080"
 
 @allure.feature("Главная страница")
 @allure.story("Открытие страницы")

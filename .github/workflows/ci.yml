@@ -13,114 +13,93 @@ jobs:
     runs-on: self-hosted
 
     steps:
+      # 1. Основной код
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2. Забираем gh-pages (где лежит предыдущий отчет)
+      - name: Checkout gh-pages branch (history)
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+        continue-on-error: true
+
+      # 3. Загружаем history
+      - name: Load previous Allure history
+        run: |
+          mkdir -p reports/allure-history
+
+          if [ -d "gh-pages/history" ]; then
+            echo "Found history in gh-pages/history"
+            cp -r gh-pages/history/* reports/allure-history/ || true
+            echo "History copied"
+          else
+            echo "No history found (first run)"
+          fi
+
+          echo "Loaded history:"
+          ls -la reports/allure-history || echo "empty"
+
+      # 4. Останавливаем старые контейнеры
       - name: Stop old containers
         run: docker compose down || true
 
-      # ❗ RUN TESTS + корректный capture exit code
-      - name: Run tests in Docker
-        id: run_tests
+      # 5. Запуск тестов
+      - name: Build and run tests
+        run: docker compose up --build --abort-on-container-exit
+
+      # 6. Проверка истории после генерации
+      - name: Debug - Check generated history
         run: |
-          set +e
+          echo "reports/allure-report/history:"
+          ls -la reports/allure-report/history || echo "no history"
 
-          docker compose up --build --abort-on-container-exit
-          EXIT_CODE=$?
+      # 7. Сохраняем history для следующего запуска
+      - name: Save new history
+        run: |
+          mkdir -p history
 
-          # убираем пробелы и переносы
-          EXIT_CODE=$(echo "$EXIT_CODE" | tr -d '[:space:]')
+          if [ -d "reports/allure-report/history" ]; then
+            cp -r reports/allure-report/history/* history/
+            echo "History prepared for deploy"
+          else
+            echo "No history generated!"
+          fi
 
-          echo "Raw exit code: $EXIT_CODE"
+          echo "Final history:"
+          ls -la history
 
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-
-          # НЕ ломаем job, всегда продолжаем pipeline
-          exit 0
-
-      # 📦 сохраняем отчет
+      # 8. Артефакт отчета
       - name: Upload Allure report
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report/
 
-  notify:
-    needs: test
-    runs-on: self-hosted
-    if: always()
-
-    steps:
-      - name: Download test result
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-report
-
-      # ❗ читаем exit code правильно
-      - name: Read exit code
-        id: result
-        run: |
-          echo "DEBUG raw file:"
-          cat exit_code.txt || true
-
-          EXIT_CODE=$(cat exit_code.txt 2>/dev/null | tr -d '[:space:]')
-
-          # если файла нет — считаем успех
-          if [ -z "$EXIT_CODE" ]; then
-            EXIT_CODE=0
-          fi
-
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-          echo "FINAL EXIT CODE: $EXIT_CODE"
-
-      # 📬 EMAIL если тест упал
-      - name: Send email on failure (SMTP)
-        if: steps.result.outputs.exit_code != '0'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y msmtp
-
-          cat <<EOF > ~/.msmtprc
-          defaults
-          auth           on
-          tls            on
-          tls_trust_file /etc/ssl/certs/ca-certificates.crt
-          logfile        ~/.msmtp.log
-
-          account gmail
-          host smtp.gmail.com
-          port 587
-          from $EMAIL_USERNAME
-          user $EMAIL_USERNAME
-          password $EMAIL_PASSWORD
-
-          account default : gmail
-          EOF
-
-          chmod 600 ~/.msmtprc
-
-          echo -e "Subject: ❌ Tests FAILED\n\nRepo: ${{ github.repository }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp -v $EMAIL_USERNAME
-
-        env:
-          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-
   deploy:
     needs: test
     runs-on: self-hosted
-    if: always()
+    if: success()
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download report
+      # 1. Скачиваем отчет
+      - name: Download Allure report
         uses: actions/download-artifact@v4
         with:
           name: allure-report
           path: allure-report
 
+      # 2. Проверяем перед деплоем
+      - name: Debug before deploy
+        run: |
+          echo "Report contents:"
+          ls -la allure-report
+          echo ""
+          echo "History in report:"
+          ls -la allure-report/history || echo "no history"
+
+      # 3. Деплой (ВАЖНО: keep_files=true)
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -130,3 +109,4 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy Allure report ${{ github.sha }}'

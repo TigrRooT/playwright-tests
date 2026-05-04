@@ -98,7 +98,7 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "❌ Tests FAILED - ${{ github.repository }}"
+          subject: "Tests FAILED - ${{ github.repository }}"
           to: ${{ secrets.EMAIL_USERNAME }}
           from: GitHub Actions
           body: |

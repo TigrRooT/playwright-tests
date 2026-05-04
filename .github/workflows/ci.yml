@@ -31,49 +31,39 @@ jobs:
           mkdir -p reports/allure-history
 
           if [ -d "gh-pages/history" ]; then
-            echo "Found history"
             cp -r gh-pages/history/* reports/allure-history/ || true
           else
             echo "No history found"
           fi
 
-          ls -la reports/allure-history || true
-
-      # 4. Stop old containers
+      # 4. Stop containers
       - name: Stop old containers
         run: docker compose down || true
 
-      # ❗ 5. RUN TESTS (НЕ ЛОМАЕМ PIPELINE)
-      - name: Build and run tests
+      # ❗ 5. RUN TESTS (ГАРАНТИРОВАННЫЙ CAPTURE)
+      - name: Run tests in Docker
         id: run_tests
         run: |
           set +e
+
           docker compose up --build --abort-on-container-exit
           EXIT_CODE=$?
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          echo "Exit code: $EXIT_CODE"
+
+          # сохраняем результат
+          echo "$EXIT_CODE" > exit_code.txt
+
           exit 0
 
-      # 6. Debug report
-      - name: Debug Allure history
-        if: always()
-        run: |
-          ls -la reports/allure-report/history || echo "no history"
+      # 6. Upload exit code as artifact (важно)
+      - name: Save test result
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-result
+          path: exit_code.txt
 
-      # 7. Save history
-      - name: Save new history
-        if: always()
-        run: |
-          mkdir -p history
-
-          if [ -d "reports/allure-report/history" ]; then
-            cp -r reports/allure-report/history/* history/
-          else
-            echo "No history generated"
-          fi
-
-          ls -la history
-
-      # 8. Upload report
+      # 7. Upload report (всегда)
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,9 +71,26 @@ jobs:
           name: allure-report
           path: reports/allure-report/
 
-      # ❗ 9. EMAIL (по результату тестов)
+  notify:
+    needs: test
+    runs-on: self-hosted
+    if: always()
+
+    steps:
+      - name: Download test result
+        uses: actions/download-artifact@v4
+        with:
+          name: test-result
+
+      - name: Read exit code
+        id: result
+        run: |
+          EXIT_CODE=$(cat exit_code.txt)
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+      # 📬 EMAIL ТОЛЬКО ЕСЛИ ТЕСТ УПАЛ
       - name: Send email on failure (SMTP)
-        if: steps.run_tests.outputs.exit_code != '0'
+        if: steps.result.outputs.exit_code != '0'
         run: |
           sudo apt-get update
           sudo apt-get install -y msmtp
@@ -109,8 +116,6 @@ jobs:
 
           echo -e "Subject: ❌ Tests FAILED\n\nRepo: ${{ github.repository }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp -v $EMAIL_USERNAME
 
-          echo "==== MSMTP LOG ===="
-          cat ~/.msmtp.log || true
         env:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
@@ -118,7 +123,7 @@ jobs:
   deploy:
     needs: test
     runs-on: self-hosted
-    if: always()   # ❗ ключевой фикс
+    if: always()
 
     steps:
       - name: Download Allure report
@@ -126,11 +131,6 @@ jobs:
         with:
           name: allure-report
           path: allure-report
-
-      - name: Debug before deploy
-        run: |
-          ls -la allure-report
-          ls -la allure-report/history || echo "no history"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

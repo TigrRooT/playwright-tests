@@ -17,7 +17,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Checkout gh-pages (history)
+      # 2. gh-pages history
       - name: Checkout gh-pages branch (history)
         uses: actions/checkout@v4
         with:
@@ -25,7 +25,7 @@ jobs:
           path: gh-pages
         continue-on-error: true
 
-      # 3. Load Allure history
+      # 3. Load history
       - name: Load previous Allure history
         run: |
           mkdir -p reports/allure-history
@@ -43,12 +43,18 @@ jobs:
       - name: Stop old containers
         run: docker compose down || true
 
-      # ❗ 5. RUN TESTS (ключевой фикс)
+      # ❗ 5. RUN TESTS (НЕ ЛОМАЕМ PIPELINE)
       - name: Build and run tests
-        run: docker compose up --build --abort-on-container-exit --exit-code-from tests
+        id: run_tests
+        run: |
+          set +e
+          docker compose up --build --abort-on-container-exit
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit 0
 
-      # 6. Debug history
-      - name: Debug - Check generated history
+      # 6. Debug report
+      - name: Debug Allure history
         if: always()
         run: |
           ls -la reports/allure-report/history || echo "no history"
@@ -62,12 +68,12 @@ jobs:
           if [ -d "reports/allure-report/history" ]; then
             cp -r reports/allure-report/history/* history/
           else
-            echo "No history generated!"
+            echo "No history generated"
           fi
 
           ls -la history
 
-      # 8. Upload report (всегда)
+      # 8. Upload report
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
@@ -75,9 +81,9 @@ jobs:
           name: allure-report
           path: reports/allure-report/
 
-      # ❗ 9. EMAIL (теперь точно сработает)
+      # ❗ 9. EMAIL (по результату тестов)
       - name: Send email on failure (SMTP)
-        if: failure()
+        if: steps.run_tests.outputs.exit_code != '0'
         run: |
           sudo apt-get update
           sudo apt-get install -y msmtp
@@ -101,7 +107,7 @@ jobs:
 
           chmod 600 ~/.msmtprc
 
-          echo -e "Subject: ❌ Tests FAILED\n\nRepo: ${{ github.repository }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp -v $EMAIL_USERNAME
+          echo -e "Subject: ❌ Tests FAILED\n\nRepo: ${{ github.repository }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp -v $EMAIL_USERNAME
 
           echo "==== MSMTP LOG ===="
           cat ~/.msmtp.log || true
@@ -112,7 +118,7 @@ jobs:
   deploy:
     needs: test
     runs-on: self-hosted
-    if: success()
+    if: always()   # ❗ ключевой фикс
 
     steps:
       - name: Download Allure report

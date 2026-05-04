@@ -13,11 +13,11 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1. Основной код
+      # 1. Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Забираем gh-pages (где лежит предыдущий отчет)
+      # 2. Checkout gh-pages (history)
       - name: Checkout gh-pages branch (history)
         uses: actions/checkout@v4
         with:
@@ -25,39 +25,35 @@ jobs:
           path: gh-pages
         continue-on-error: true
 
-      # 3. Загружаем history
+      # 3. Load Allure history
       - name: Load previous Allure history
         run: |
           mkdir -p reports/allure-history
 
           if [ -d "gh-pages/history" ]; then
-            echo "Found history in gh-pages/history"
+            echo "Found history"
             cp -r gh-pages/history/* reports/allure-history/ || true
           else
-            echo "No history found (first run)"
+            echo "No history found"
           fi
 
           ls -la reports/allure-history || true
 
-      # 4. Останавливаем старые контейнеры
+      # 4. Stop old containers
       - name: Stop old containers
         run: docker compose down || true
 
-      # ❗ 5. ЗАПУСК ТЕСТОВ (ИСПРАВЛЕНО)
+      # ❗ 5. RUN TESTS (ключевой фикс)
       - name: Build and run tests
-        run: |
-          docker compose up --build --abort-on-container-exit
-          EXIT_CODE=$?
-          echo "Exit code: $EXIT_CODE"
-          exit $EXIT_CODE
+        run: docker compose up --build --abort-on-container-exit --exit-code-from tests
 
-      # 6. Проверка истории после генерации
+      # 6. Debug history
       - name: Debug - Check generated history
         if: always()
         run: |
           ls -la reports/allure-report/history || echo "no history"
 
-      # 7. Сохранение history
+      # 7. Save history
       - name: Save new history
         if: always()
         run: |
@@ -71,7 +67,7 @@ jobs:
 
           ls -la history
 
-      # 8. Upload report (даже если тесты упали)
+      # 8. Upload report (всегда)
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
@@ -79,7 +75,7 @@ jobs:
           name: allure-report
           path: reports/allure-report/
 
-      # ❗ 9. EMAIL ON FAILURE (с debug)
+      # ❗ 9. EMAIL (теперь точно сработает)
       - name: Send email on failure (SMTP)
         if: failure()
         run: |
@@ -105,7 +101,7 @@ jobs:
 
           chmod 600 ~/.msmtprc
 
-          echo -e "Subject: ❌ Tests FAILED\n\nТесты упали\nRepo: ${{ github.repository }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp -v $EMAIL_USERNAME
+          echo -e "Subject: ❌ Tests FAILED\n\nRepo: ${{ github.repository }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" | msmtp -v $EMAIL_USERNAME
 
           echo "==== MSMTP LOG ===="
           cat ~/.msmtp.log || true

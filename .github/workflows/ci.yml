@@ -13,11 +13,11 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1. Основной код
+      # 1. Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Забираем gh-pages (где лежит предыдущий отчет)
+      # 2. Checkout gh-pages (history)
       - name: Checkout gh-pages branch (history)
         uses: actions/checkout@v4
         with:
@@ -25,53 +25,36 @@ jobs:
           path: gh-pages
         continue-on-error: true
 
-      # 3. Загружаем history
+      # 3. Load history
       - name: Load previous Allure history
         run: |
           mkdir -p reports/allure-history
 
           if [ -d "gh-pages/history" ]; then
-            echo "Found history in gh-pages/history"
             cp -r gh-pages/history/* reports/allure-history/ || true
-            echo "History copied"
-          else
-            echo "No history found (first run)"
           fi
 
-          echo "Loaded history:"
-          ls -la reports/allure-history || echo "empty"
-
-      # 4. Останавливаем старые контейнеры
+      # 4. Stop old containers
       - name: Stop old containers
         run: docker compose down || true
 
-      # 5. Запуск тестов
+      # 5. Run tests (ВАЖНО)
       - name: Build and run tests
-        run: docker compose up --build --abort-on-container-exit
+        run: docker compose up --build --abort-on-container-exit --exit-code-from tests
 
-      # 6. Проверка истории после генерации
-      - name: Debug - Check generated history
-        run: |
-          echo "reports/allure-report/history:"
-          ls -la reports/allure-report/history || echo "no history"
-
-      # 7. Сохраняем history для следующего запуска
+      # 6. Save history
       - name: Save new history
+        if: always()
         run: |
           mkdir -p history
 
           if [ -d "reports/allure-report/history" ]; then
             cp -r reports/allure-report/history/* history/
-            echo "History prepared for deploy"
-          else
-            echo "No history generated!"
           fi
 
-          echo "Final history:"
-          ls -la history
-
-      # 8. Артефакт отчета
+      # 7. Upload report artifact
       - name: Upload Allure report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
@@ -80,26 +63,17 @@ jobs:
   deploy:
     needs: test
     runs-on: self-hosted
-    if: success()
+    if: always()   # ← КЛЮЧЕВОЕ
 
     steps:
-      # 1. Скачиваем отчет
+      # 1. Download report
       - name: Download Allure report
         uses: actions/download-artifact@v4
         with:
           name: allure-report
           path: allure-report
 
-      # 2. Проверяем перед деплоем
-      - name: Debug before deploy
-        run: |
-          echo "Report contents:"
-          ls -la allure-report
-          echo ""
-          echo "History in report:"
-          ls -la allure-report/history || echo "no history"
-
-      # 3. Деплой (ВАЖНО: keep_files=true)
+      # 2. Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -110,3 +84,28 @@ jobs:
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'Deploy Allure report ${{ github.sha }}'
+
+  notify:
+    needs: test
+    runs-on: self-hosted
+    if: failure()
+
+    steps:
+      - name: Send email on failure
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "❌ Tests FAILED - ${{ github.repository }}"
+          to: your_email@example.com
+          from: GitHub Actions
+          body: |
+            Tests failed!
+
+            Repo: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

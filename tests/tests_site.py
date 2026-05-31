@@ -3,6 +3,7 @@ import allure
 
 BASE_URL = os.getenv("SITE_URL", "http://google")
 
+
 @allure.feature("Главная страница")
 @allure.story("Открытие страницы")
 @allure.title("Проверка, что страница успешно открывается1")

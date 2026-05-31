@@ -1,11 +1,11 @@
 import os
 import allure
 
-BASE_URL = os.getenv("SITE_URL", "http://google")
+BASE_URL = os.getenv("SITE_URL", "http://10.0.2.2:8080")
 
 @allure.feature("Главная страница")
 @allure.story("Открытие страницы")
-@allure.title("Проверка, что страница успешно открывается1")
+@allure.title("Проверка, что страница успешно открывается")
 def test_page_opens_successfully(page):
     with allure.step("Открыть страницу"):
         page.goto(BASE_URL)
@@ -26,7 +26,7 @@ def test_page_opens_successfully(page):
 
 @allure.feature("Главная страница")
 @allure.story("Прокрутка страницы")
-@allure.title("Проверка, что страницу можно прокручивать1")
+@allure.title("Проверка, что страницу можно прокручивать")
 def test_page_can_scroll(page):
     with allure.step("Открыть страницу"):
         page.goto(BASE_URL)

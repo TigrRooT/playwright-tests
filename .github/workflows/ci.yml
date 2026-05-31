@@ -38,8 +38,12 @@ jobs:
       - name: Stop old containers
         run: docker compose down || true
 
-      # 5. Run tests (ВАЖНО)
+      # 5. Run tests
       - name: Build and run tests
+        env:
+          SITE_URL: http://10.0.2.2:8080
+          YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
+          YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
         run: docker compose up --build --abort-on-container-exit --exit-code-from tests
 
       # 6. Save history
@@ -59,11 +63,12 @@ jobs:
         with:
           name: allure-report
           path: reports/allure-report/
+          if-no-files-found: warn
 
   deploy:
     needs: test
     runs-on: self-hosted
-    if: always()   # ← КЛЮЧЕВОЕ
+    if: always()
 
     steps:
       # 1. Download report

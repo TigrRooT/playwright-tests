@@ -13,3 +13,6 @@ services:
 
     environment:
       - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+      - SITE_URL=${SITE_URL}
+      - YANDEX_API_KEY=${YANDEX_API_KEY}
+      - YANDEX_FOLDER_ID=${YANDEX_FOLDER_ID}

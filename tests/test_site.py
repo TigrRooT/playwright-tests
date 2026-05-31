@@ -3,6 +3,7 @@ import allure
 
 BASE_URL = os.getenv("SITE_URL", "http://10.0.2.2:8080")
 
+
 @allure.feature("Главная страница")
 @allure.story("Открытие страницы")
 @allure.title("Проверка, что страница успешно открывается")

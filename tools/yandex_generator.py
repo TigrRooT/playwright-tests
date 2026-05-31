@@ -13,6 +13,9 @@ YANDEX_URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
 OUTPUT_FILE = Path("tests/test_ai_generated.py")
 
+# Ограничиваем HTML, чтобы YandexGPT не получил слишком большой prompt
+MAX_HTML_CHARS = 30000
+
 
 def require_env(name: str, value: str | None) -> str:
     if not value:
@@ -36,6 +39,13 @@ def disable_proxies() -> None:
 
     for variable in proxy_variables:
         os.environ.pop(variable, None)
+
+
+def limit_html(html: str) -> str:
+    if len(html) <= MAX_HTML_CHARS:
+        return html
+
+    return html[:MAX_HTML_CHARS] + "\n<!-- HTML was truncated for YandexGPT prompt -->"
 
 
 def clean_generated_code(code: str) -> str:
@@ -86,7 +96,7 @@ def generate_test(prompt: str) -> str:
         "completionOptions": {
             "stream": False,
             "temperature": 0.2,
-            "maxTokens": 3000,
+            "maxTokens": "3000",
         },
         "messages": [
             {
@@ -117,7 +127,12 @@ def generate_test(prompt: str) -> str:
         timeout=60,
     )
 
-    response.raise_for_status()
+    if not response.ok:
+        print("YandexGPT request failed")
+        print(f"Status code: {response.status_code}")
+        print("Response body:")
+        print(response.text)
+        response.raise_for_status()
 
     generated_code = response.json()["result"]["alternatives"][0]["message"]["text"]
 
@@ -130,11 +145,13 @@ def save_generated_tests(generated_test: str) -> None:
 
 
 def main() -> None:
-    print("🌐 Opening site and extracting HTML...")
+    print("Opening site and extracting HTML...")
+    print(f"SITE_URL: {SITE_URL}")
 
-    html = get_page_html(SITE_URL)
+    html = limit_html(get_page_html(SITE_URL))
 
-    print("📦 HTML collected, sending to YandexGPT...")
+    print(f"HTML collected. Length after limit: {len(html)} characters")
+    print("Sending HTML to YandexGPT...")
 
     prompt = f"""
 Ты QA Automation Engineer.
@@ -163,8 +180,9 @@ def main() -> None:
 - не писать async код
 - не добавлять объяснения
 - вернуть только Python-код
+- не оборачивать код в markdown
 - не оборачивать код в ```python
-- не добавлять markdown
+- не добавлять текстовые пояснения до или после кода
 
 Требования к BASE_URL:
 - в начале файла создай переменную:

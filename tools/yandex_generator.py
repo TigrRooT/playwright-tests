@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import requests
 from playwright.sync_api import sync_playwright
 
@@ -9,6 +11,8 @@ SITE_URL = os.getenv("SITE_URL", "http://10.0.2.2:8080")
 
 YANDEX_URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
+OUTPUT_FILE = Path("tests/test_ai_generated.py")
+
 
 def require_env(name: str, value: str | None) -> str:
     if not value:
@@ -16,6 +20,7 @@ def require_env(name: str, value: str | None) -> str:
             f"Environment variable {name} is not set. "
             f"Set it in GitHub Secrets, Docker Compose, or PowerShell."
         )
+
     return value
 
 
@@ -119,6 +124,11 @@ def generate_test(prompt: str) -> str:
     return clean_generated_code(generated_code)
 
 
+def save_generated_tests(generated_test: str) -> None:
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_FILE.write_text(generated_test + "\n", encoding="utf-8")
+
+
 def main() -> None:
     print("🌐 Opening site and extracting HTML...")
 
@@ -174,10 +184,10 @@ def main() -> None:
 Сгенерируй минимум эти тесты:
 
 1. Тест открытия главной страницы:
-- имя функции: test_page_opens_successfully
-- feature: "Главная страница"
-- story: "Открытие страницы"
-- title: "Проверка, что страница успешно открывается"
+- имя функции: test_page_opens_successfully_ai
+- feature: "AI-тесты"
+- story: "Открытие главной страницы"
+- title: "AI: Проверка, что главная страница успешно открывается"
 - шаги Allure:
   - "Открыть страницу"
   - "Проверить, что страница содержит контент"
@@ -189,10 +199,10 @@ def main() -> None:
 - проверить, что в title нет "404" и "error"
 
 2. Тест прокрутки страницы:
-- имя функции: test_page_can_scroll
-- feature: "Главная страница"
+- имя функции: test_page_can_scroll_ai
+- feature: "AI-тесты"
 - story: "Прокрутка страницы"
-- title: "Проверка, что страницу можно прокручивать"
+- title: "AI: Проверка, что страницу можно прокручивать"
 - шаги Allure:
   - "Открыть страницу"
   - "Проверить возможность прокрутки"
@@ -214,17 +224,26 @@ def main() -> None:
 - если в HTML есть ссылки, кнопки или элементы навигации, добавь разумные проверки их видимости
 - все дополнительные тесты тоже должны иметь allure.feature, allure.story, allure.title и allure.step
 - все дополнительные тестовые функции должны начинаться с test_
+- названия дополнительных функций должны заканчиваться на _ai
 
 Важно:
-- итоговый код должен быть готов для сохранения в файл tests/test_site.py
+- итоговый код должен быть готов для сохранения в файл tests/test_ai_generated.py
 - код должен запускаться командой:
   python -m pytest tests/ --alluredir=reports/allure-results
 - тесты должны отображаться в Allure с русскими названиями из allure.title
+- не генерируй тесты с такими же именами функций, как уже существующие ручные тесты
+- не используй имена:
+  test_page_opens_successfully
+  test_page_can_scroll
 
 Верни только Python-код.
 """
 
     generated_test = generate_test(prompt)
+
+    save_generated_tests(generated_test)
+
+    print(f"Generated tests saved to {OUTPUT_FILE}")
 
     print("\n========== GENERATED TEST ==========\n")
     print(generated_test)

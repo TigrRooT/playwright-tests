@@ -3,3 +3,4 @@ allure-pytest
 pytest-cov
 playwright
 pytest-playwright
+requests
